@@ -16,7 +16,7 @@ def acosd(x):
 
 ## Accept the IMU data somehow
 
-def get_YPR_fixed_frame(alpha, beta, gamma):
+def convert_YPR_fixed_frame(alpha, beta, gamma):
     '''
     This function returns the YPR in the fixed world frame.
     Data collected from the Vector Nav is in the body frame and must be transformed
