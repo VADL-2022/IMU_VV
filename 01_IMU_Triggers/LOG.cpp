@@ -18,7 +18,7 @@ void LOG::callback(void* userData)
     int seconds;
     int microseconds;
 
-    gpioTime(PI_TIME_RELATIVE, &seconds, &microseconds);
+    //gpioTime(PI_TIME_RELATIVE, &seconds, &microseconds);
 
     if (LOG_ACTIVE)
     {
@@ -28,22 +28,24 @@ void LOG::callback(void* userData)
             << data->mImu->qtn[0] << "," << data->mImu->qtn[1] << "," << data->mImu->qtn[2] << "," << data->mImu->qtn[3] << ","
             << data->mImu->rate[0] << "," << data->mImu->rate[1] << "," << data->mImu->rate[2] << ","
             << data->mImu->accel[0] << "," << data->mImu->accel[1] << "," << data->mImu->accel[2] << ","
-            << data->mImu->mag[0] << "," << data->mImu->mag[1] << "," << data->mImu->mag[2] << ","
+            //<< data->mImu->mag[0] << "," << data->mImu->mag[1] << "," << data->mImu->mag[2] << ","
             << data->mImu->temp << "," << data->mImu->pres << "," << data->mImu->dTime << ","
             << data->mImu->dTheta[0] << "," << data->mImu->dTheta[1] << "," << data->mImu->dTheta[2] << ","
             << data->mImu->dVel[0] << "," << data->mImu->dVel[1] << "," << data->mImu->dVel[2] << ","
-            << data->mImu->magNed[0] << "," << data->mImu->magNed[1] << "," << data->mImu->magNed[2] << ","
+            //<< data->mImu->magNed[0] << "," << data->mImu->magNed[1] << "," << data->mImu->magNed[2] << ","
             << data->mImu->accelNed[0] << "," << data->mImu->accelNed[1] << "," << data->mImu->accelNed[2] << ","
             << data->mImu->linearAccelBody[0] << "," << data->mImu->linearAccelBody[1] << "," << data->mImu->linearAccelBody[2] << ","
-            << data->mImu->linearAccelNed[0] << "," << data->mImu->linearAccelNed[1] << "," << data->mImu->linearAccelNed[2] << ","
-            << data->mLidar->amplitude << "," << data->mLidar->distance << ","
-            << data->mLds->light[0] << "," << data->mLds->light[1] << "," << data->mLds->light[2] << "," << data->mLds->light[3] << ",";
+            << data->mImu->linearAccelNed[0] << "," << data->mImu->linearAccelNed[1] << "," << data->mImu->linearAccelNed[2] << ",";
+            
+            // Their Lidar stuff that isn't relevant this year
+            //<< data->mLidar->amplitude << "," << data->mLidar->distance << ","
+            //<< data->mLds->light[0] << "," << data->mLds->light[1] << "," << data->mLds->light[2] << "," << data->mLds->light[3] << ",";
     }
     if (VERBOSE)
     {
         cout << "Yaw: " << data->mImu->yprNed[0] << " Pitch: " << data->mImu->yprNed[1] << " Roll: " << data->mImu->yprNed[2]
-            << " Accel: " << data->mImu->linearAccelBody.mag()
-            << " Distance: " << data->mLidar->distance << endl;
+            << " Accel: " << data->mImu->linearAccelBody.mag() << endl;
+            // << " Distance: " << data->mLidar->distance << endl;
     }
 }
 
