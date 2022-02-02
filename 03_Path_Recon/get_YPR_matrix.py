@@ -14,8 +14,6 @@ def tand(x):
 def acosd(x):
     return np.rad2deg(acos(x))
 
-## Accept the IMU data somehow
-
 def convert_YPR_fixed_frame(alpha, beta, gamma):
     '''
     This function returns the YPR in the fixed world frame.
