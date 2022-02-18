@@ -25,7 +25,7 @@ def append_list_as_row(file_name, list_of_elem):
         csv_writer.writerow(list_of_elem)
 
 timestr = time.strftime("%Y%m%d-%H%M%S")
-my_log = "LOG_" + timestr + ".csv"
+my_log = "LIS_LOG_" + timestr + ".csv"
 
 # Create a new (empty) csv file
 with open(my_log, 'w', newline='') as file:
@@ -84,8 +84,6 @@ def runOneIter():
     global avgZ
     global counter
     
-    '''Do I ever need to sleep here? Or will the while take care of it?'''
-    
     # X AXIS
     ###############################################################################
     # H3LIS331DL address, 0x18(24)
@@ -141,7 +139,7 @@ def runOneIter():
     my_accels = [(xAccl-offsetX)/1000.0*9.81, (yAccl-offsetY)/1000.0*9.81, (zAccl-offsetZ)/1000.0*9.81]
     append_list_as_row(my_log, my_accels)
 
-calibrate("LOG_20220129-182509.csv")
+#calibrate("LOG_20220129-182509.csv")
 try:
     while True:
         runOneIter()
