@@ -80,9 +80,23 @@ def runOneIter():
     
     # L3GD20H Gyroscope
     ###############################################################################
-    rx = L3G_bus.read_byte_data(L3G_address, 0x29)
-    ry = L3G_bus.read_byte_data(L3G_address, 0x2B)
-    rz = L3G_bus.read_byte_data(L3G_address, 0x2D)
+    rxL = L3G_bus.read_byte_data(L3G_address, 0x28)
+    rxH = L3G_bus.read_byte_data(L3G_address, 0x29)
+    rx = rxH * 256 + rxL
+    if rx > 32767:
+        rx -= 65536
+    
+    ryL = L3G_bus.read_byte_data(L3G_address, 0x2A)
+    ryH = L3G_bus.read_byte_data(L3G_address, 0x2B)
+    ry = ryH * 256 + ryL
+    if ry > 32767:
+        ry -= 65536
+    
+    rzL = L3G_bus.read_byte_data(L3G_address, 0x2C)
+    rzH = L3G_bus.read_byte_data(L3G_address, 0x2D)
+    rz = rzH * 256 + rzL
+    if rz > 32767:
+        rz -= 65536
     
     # LOG TO CSV
     ###############################################################################
