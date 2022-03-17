@@ -4,15 +4,11 @@ Created on Thu Feb 17:43:47 2022
 
 @author: kdmen
 
-YOU MUST DOWNLOAD SMSBUS ON THE RPI BEFORE YOU CAN RUN THIS:
-    
-
 """
 
 import smbus
-import time
+from time import time, strftime
 from csv import writer
-import time
 
 def append_list_as_row(file_name, list_of_elem):
     # Open file in append mode
@@ -22,7 +18,7 @@ def append_list_as_row(file_name, list_of_elem):
         # Add contents of list as last row in the csv file
         csv_writer.writerow(list_of_elem)
 
-timestr = time.strftime("%Y%m%d-%H%M%S")
+timestr = strftime("%Y%m%d-%H%M%S")
 my_log = "LSM_LOG_" + timestr + ".csv"
 
 # Create a new (empty) csv file
@@ -43,7 +39,9 @@ bus.write_byte_data(address, 0x10, 0x57)
 # Required Binary: 0101 (Set ODR to 208 Hz), 00 (245 dps), 10 (Set SA0 high) --> Equivalent Hex: 01010010 -> 0x52
 bus.write_byte_data(address, 0x11, 0x52)
 
-def runOneIter():
+#Noise is in units of micro-g * sqrt(Hz)
+
+def runOneIter(time_of_startup):
     wxL = bus.read_byte_data(address, 0x22)
     wxH = bus.read_byte_data(address, 0x23)
     wx = wxH * 256 + wxL
@@ -83,16 +81,23 @@ def runOneIter():
     time1 = bus.read_byte_data(address, 0x40)
     time2 = bus.read_byte_data(address, 0x41)
     time3 = bus.read_byte_data(address, 0x42)
-    time = time3 * 65536 + time2 * 256 + time1
+    #time = time3 * 65536 + time2 * 256 + time1
+    #timestamp = time.strftime("%H%M%S")
+    timestamp = time.time() - time_of_startup
     
-    my_vals = [ax, ay, az, wx, wy, wz, time]
+    my_accels = [ax ay az] * 4.0 / 32768.0
+    my_gyros = [wx wy wz] * 2000.0 / 32768.0
+    my_vals = my_accels.extend(my_gyros).append([time1, time2, time3, timestamp])
+    
+    #my_vals = [ax, ay, az, wx, wy, wz, time1, time2, time3, timestamp]
     #my_vals = [axL, axH, ayL, ayH, azL, azH, wxL, wxH, wyL, wxH, wzL, wzH]
     append_list_as_row(my_log, my_vals)
 
+time_of_startup = time.time()    
 try:
-    append_list_as_row(my_log, ["Accel X", "Accel Y", "Accel Z", "Rate X", "Rate Y", "Rate Z", "Time"])
+    append_list_as_row(my_log, ["Accel X", "Accel Y", "Accel Z", "Rate X", "Rate Y", "Rate Z", "Time1", "Time2", "Time3", "Timestamp"])
     #append_list_as_row(my_log, ["Accel XL", "Accel XH", "Accel YL", "Accel YH", "Accel ZL", "Accel ZH", "Rate XL", "Rate XH", "Rate YL", "Rate YH", "Rate ZL", "Rate ZH"])
     while True:
-        runOneIter()
+        runOneIter(time_of_startup)
 finally:
     pass
