@@ -184,8 +184,7 @@ def runOneIter(time_of_startup):
     append_list_as_row(my_log, my_vals)
 
 time_of_startup = time()    
-#append_list_as_row(my_log, ["Accel X", "Accel Y", "Accel Z", "Gyro X", "Gyro Y", "Gyro Z", "Timestamp"])
-
+append_list_as_row(my_log, ["Accel X", "Accel Y", "Accel Z", "Gyro X", "Gyro Y", "Gyro Z", "Timestamp"])
 
 my_cond = 0
 my_start = time()
