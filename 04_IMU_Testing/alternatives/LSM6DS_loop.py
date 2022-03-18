@@ -45,7 +45,10 @@ bus.write_byte_data(address, 0x11, 0x52)
 
 def runOneIter(time_of_startup):
     # CONVERSION FACTOR TO M/S^2:
-    conv_factor = 0.00482283
+    ac_conv_factor = 0.00482283
+    # CONVERSION FACTOR TO DEG:
+    g_conv_factor = 0.00072
+    # ^^Both were empirically determined
     
     wxL = bus.read_byte_data(address, 0x22)
     wxH = bus.read_byte_data(address, 0x23)
@@ -85,13 +88,14 @@ def runOneIter(time_of_startup):
 
     timestamp = time() - time_of_startup
 
-    my_accels = array([ax, ay, az]) * conv_factor
-    my_gyros = array([wx, wy, wz]) #* 2000.0 / 32768.0
+    my_accels = array([ax, ay, az]) * ac_conv_factor
+    my_gyros = array([wx, wy, wz]) * g_conv_factor
     my_vals = list(my_accels)
     my_vals.extend(list(my_gyros))
     my_vals.extend([timestamp])
 
     append_list_as_row(my_log, my_vals)
+
 
 
 time_of_startup = time()    
