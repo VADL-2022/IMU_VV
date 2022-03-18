@@ -21,7 +21,7 @@ def append_list_as_row(file_name, list_of_elem):
 
 timestr = strftime("%Y%m%d-%H%M%S")
 #my_log = "LSM_LOG_" + timestr + ".csv"
-my_log = "LSM_mid.csv"
+my_log = "LSM_LOG_" + timestr + ".csv"
 
 # Create a new (empty) csv file
 with open(my_log, 'w', newline='') as file:
@@ -44,46 +44,49 @@ bus.write_byte_data(address, 0x11, 0x52)
 #Noise is in units of micro-g * sqrt(Hz)
 
 def runOneIter(time_of_startup):
+    # CONVERSION FACTOR TO M/S^2:
+    conv_factor = 0.00482283
+    
     wxL = bus.read_byte_data(address, 0x22)
     wxH = bus.read_byte_data(address, 0x23)
     wx = wxH * 256 + wxL
     if wx > 32767 :
-    	wx -= 65536
-    
+        wx -= 65536
+
     wyL = bus.read_byte_data(address, 0x24)
     wyH = bus.read_byte_data(address, 0x25)
     wy = wyH * 256 + wyL
     if wy > 32767 :
-    	wy -= 65536
-    	
+        wy -= 65536
+        
     wzL = bus.read_byte_data(address, 0x26)
     wzH = bus.read_byte_data(address, 0x27)
     wz = wzH * 256 + wzL
     if wz > 32767 :
-    	wz -= 65536
-    
+        wz -= 65536
+
     axL = bus.read_byte_data(address, 0x28)
     axH = bus.read_byte_data(address, 0x29)
     ax = axH * 256 + axL
     if ax > 32767 :
-    	ax -= 65536
-    	
+        ax -= 65536
+        
     ayL = bus.read_byte_data(address, 0x2A)
     ayH = bus.read_byte_data(address, 0x2B)
     ay = ayH * 256 + ayL
     if ay > 32767 :
-    	ay -= 65536
-    	
+        ay -= 65536
+        
     azL = bus.read_byte_data(address, 0x2C)
     azH = bus.read_byte_data(address, 0x2D)
     az = azH * 256 + azL
     if az > 32767 :
-    	az -= 65536
-    
+        az -= 65536
+
     timestamp = time() - time_of_startup
 
-    my_accels = array([ax, ay, az]) * 4.0 / 32768.0
-    my_gyros = array([wx, wy, wz]) * 2000.0 / 32768.0
+    my_accels = array([ax, ay, az]) * conv_factor
+    my_gyros = array([wx, wy, wz]) #* 2000.0 / 32768.0
     my_vals = list(my_accels)
     my_vals.extend(list(my_gyros))
     my_vals.extend([timestamp])
