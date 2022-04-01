@@ -33,9 +33,15 @@ def calc_moving_avg(axg21t, n, tdata21, dynamic_window=False, dynamic_n_timing=1
     return new_axg21s
 
 
+def nasa_pres(P, P0, T0, R, B, g):
+    imu_temp = T0*(P/P0)**(R*B/g)
+    imu_alt = (T0 - imu_temp)/B
+    return imu_alt
+
+
 def find_peak_and_wait(ax, t, thresh=50, takeoff_delay=0.6, signal_length=3):
     axn = np.array(ax)
-    above_threshold = axn > thresh
+    above_threshold = abs(axn) > thresh
     first_pass = list(above_threshold).index(True)
 
     i = first_pass
