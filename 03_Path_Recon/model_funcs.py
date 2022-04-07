@@ -39,7 +39,7 @@ def nasa_pres(P, P0, T0, R, B, g):
     return imu_alt
 
 
-def find_peak_and_wait(ax, t, thresh=50, takeoff_delay=0.6, signal_length=3):
+def find_peak_and_wait(ax, t, thresh=50, takeoff_delay=1, signal_length=3):
     axn = np.array(ax)
     above_threshold = abs(axn) > thresh
     first_pass = list(above_threshold).index(True)
