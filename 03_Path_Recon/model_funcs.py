@@ -1,16 +1,9 @@
 import numpy as np
 from pandas import read_csv
 from math import sin, cos, pi, atan2, asin, sqrt, ceil
-#import matplotlib.pyplot as plt
-#from scipy import integrate
 
 
-def atan(ratio):
-    # THIS IS IN RADIANS
-    return atan2(ratio, 1)
-
-
-def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my_post_drogue_delay=0.85, my_signal_length=3, my_t_sim_landing=50, ld_launch_angle=2*pi/180, ld_ssm=3.2, ld_dry_base=15.89):
+def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my_post_drogue_delay=0.85, my_signal_length=3, my_t_sim_landing=50, ld_launch_angle=2*pi/180, ld_ssm=3.2, ld_dry_base=15.89, ld_m_motor=0.773, ld_t_burn=1.57, ld_T_avg=1000):
     '''
     This is the main function, the rest are all nested functions called by this one.
     
@@ -24,6 +17,9 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
         ^ Don't have a way to account for which axis it is tilted in, or if it's tilted in more than 1 axis...
     ld_ssm: launch day ssm
     ld_dry_base: dry mass of the launch day vehicle NOT INCLUDING THE MOTOR
+    ld_m_motor: motor mass, change for fullscale vs subscale
+    ld_t_burn: motor burn time, change for fullscale vs subscale
+    ld_T_avg: motor thrust, change for fullscale vs subscale
     
     PROBABLY DONT NEED TO CHANGE THESE
     my_thresh: acceleration threshold to check for takeoff.  Currently 50 m/s2
@@ -31,7 +27,7 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
     my_signal_length: length of analysis window, 3 seconds
     
     RETURNS
-    final_grid_number: the grid number that we think we landed in
+    final_grid_number: a LIST of grid numbers that we think we landed in.  First is the "average" NOT BEST, the rest are the uncertainty
     
     NOTES
         We output a lot of text for quick sanity checks.  Could toggle this with a verbose mode (don't have yet).  Ideally this is 
@@ -62,7 +58,7 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
     fields = ['Timestamp', 'Pres',
     'Roll', 'Pitch', 'Yaw',
     'LinearAccelNed X', 'LinearAccelNed Y', 'LinearAccelNed Z']
-    df = pd.read_csv(imu_data_file_and_path, skipinitialspace=True, usecols=fields)
+    df = read_csv(imu_data_file_and_path, skipinitialspace=True, usecols=fields)
 
     ## EXTRACT TIME, ACCEL, AND ALTITUDE
     imu_t = np.array(df['Timestamp'].values)
@@ -207,8 +203,8 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
         m1_final_y_displacements[idx] = (imu_y[imu_start_time] - imu_y[0]) + drogue_opening_displacement_y + total_y_displacement
 
         # Oz's Other Ascent Model (Model 2) In Place of Marissa's Model
-        m2x = oz_ascent_model2(abs(w0x+uncertainty), imu_alt, imu_t, my_theta=ld_launch_angle, my_ssm=ld_ssm, my_dry_base=ld_dry_base, my_max_sim_time=imu_t[landing_i])[-1]
-        m2y = oz_ascent_model2(abs(w0y+uncertainty), imu_alt, imu_t, my_theta=ld_launch_angle, my_ssm=ld_ssm, my_dry_base=ld_dry_base, my_max_sim_time=imu_t[landing_i])[-1]
+        m2x = oz_ascent_model2(abs(w0x+uncertainty), imu_alt, imu_t, my_theta=ld_launch_angle, my_ssm=ld_ssm, my_dry_base=ld_dry_base, my_max_sim_time=imu_t[landing_i], my_m_motor=ld_m_motor, my_t_burn=ld_t_burn, my_T_avg=ld_T_avg)[-1]
+        m2y = oz_ascent_model2(abs(w0y+uncertainty), imu_alt, imu_t, my_theta=ld_launch_angle, my_ssm=ld_ssm, my_dry_base=ld_dry_base, my_max_sim_time=imu_t[landing_i], my_m_motor=ld_m_motor, my_t_burn=ld_t_burn, my_T_avg=ld_T_avg)[-1]
         print(f"Model2 x displacement: {m2x}")
         print(f"Model2 y displacement: {m2y}")
 
@@ -257,8 +253,21 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
     
     new_xbox = update_xboxes(avg_x, launch_rail_box)
     final_grid_number = update_yboxes(avg_y, new_xbox)
-    print(f"Started in grid number {launch_rail_box}, ended in {final_grid_number}")
-    return final_grid_number
+    print(f"Started in grid number {launch_rail_box}, ended in {final_grid_number} (average)")
+    
+    # Somewhat shoddy logic
+    if (maxx-minx)/2 > 250/ft:
+        all_xs = [final_grid_number, final_grid_number+20, final_grid_number-20]
+    else:
+        all_xs = [final_grid_number]
+    if (maxy-miny)/2 > 250/ft:
+        all_boxes = all_xs.append(final_grid_number+1).append(final_grid_number-1)
+    else:
+        all_boxes = all_xs
+        
+    print(f"ALL GRID BOXES: {all_boxes}")
+    
+    return all_boxes
 
 
 def update_xboxes(avg_x, launch_rail_box):
@@ -313,7 +322,7 @@ def update_yboxes(avg_y, launch_rail_box):
     return new_ybox
 
 
-def oz_ascent_model2(w_0, imu_alt, imu_t_flight, my_max_sim_time=90, my_theta=2*pi/180, my_ssm=3.2, my_dry_base=15.89):
+def oz_ascent_model2(w_0, imu_alt, imu_t_flight, my_max_sim_time=90, my_theta=2*pi/180, my_ssm=3.2, my_dry_base=15.89, my_m_motor=0.773, my_t_burn=1.57, my_T_avg=1000):
     P_0 = 101.325
     T_0 = 288.15
     R = 287
@@ -348,9 +357,9 @@ def oz_ascent_model2(w_0, imu_alt, imu_t_flight, my_max_sim_time=90, my_theta=2*
     
     ## UPDATE THESE BEFORE FULLSCALE
     ###########################################################
-    T_avg = 1000  # (1056) average motor thrust in N %change this based on apogee
-    t_burn = 1.57  # motor burn time in s
-    m_motor = 0.773  # motor propellant mass in kg
+    T_avg = my_T_avg  # (1056) average motor thrust in N %change this based on apogee
+    t_burn = my_t_burn  # motor burn time in s
+    m_motor = my_m_motor  # motor propellant mass in kg
     ###########################################################
     
     m_dry = m_dry_base - m_motor  # rocket dry mass in kg
@@ -524,3 +533,8 @@ def oz_ascent_model2(w_0, imu_alt, imu_t_flight, my_max_sim_time=90, my_theta=2*
         x = [0]
     
     return x
+
+
+def atan(ratio):
+    # THIS IS IN RADIANS
+    return atan2(ratio, 1)
