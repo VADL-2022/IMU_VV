@@ -1,12 +1,264 @@
 import numpy as np
 from pandas import read_csv
 from math import sin, cos, pi, atan2, asin, sqrt, ceil
-import matplotlib.pyplot as plt
-from scipy import integrate
+#import matplotlib.pyplot as plt
+#from scipy import integrate
+
 
 def atan(ratio):
     # THIS IS IN RADIANS
     return atan2(ratio, 1)
+
+
+def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my_post_drogue_delay=0.85, my_signal_length=3, my_t_sim_landing=50, ld_launch_angle=2*pi/180, ld_ssm=3.2, ld_dry_base=15.89):
+    '''
+    This is the main function, the rest are all nested functions called by this one.
+    
+    REQUIRED PARAMETERS
+    imu_data_file_and_path: string containing the file name and location of the IMU CSV file.  E.g. "../../Data/VN_LOG_1234567.csv"
+    launch_rail_box: grid box number that the launch rail is in.  Probably will only know this on launch day, so pass in arguement
+    
+    YOU NEED TO UPDATE THESE ON LAUNCH DAY
+    my_t_sim_landing: total time for length of the flight (takeoff to landing).  This depends on the motor used
+    ld_launch_angle: launch day launch angle (e.g. angle of the launch rail)
+        ^ Don't have a way to account for which axis it is tilted in, or if it's tilted in more than 1 axis...
+    ld_ssm: launch day ssm
+    ld_dry_base: dry mass of the launch day vehicle NOT INCLUDING THE MOTOR
+    
+    PROBABLY DONT NEED TO CHANGE THESE
+    my_thresh: acceleration threshold to check for takeoff.  Currently 50 m/s2
+    my_post_drogue_delay: time after apogee to wait for 0 acceleration transcience to pass
+    my_signal_length: length of analysis window, 3 seconds
+    
+    RETURNS
+    final_grid_number: the grid number that we think we landed in
+    
+    NOTES
+        We output a lot of text for quick sanity checks.  Could toggle this with a verbose mode (don't have yet).  Ideally this is 
+        simply saved to a text file for us to check post launch or in the lab to evaluate the flight.
+    '''
+
+    ## DETECT PARAMETERS
+    take_off_threshold_g = my_thresh;
+    landing_threshold_g = my_thresh;
+    landing_advance_time = 15;
+    predicted_flight_duration = my_t_sim_landing; 
+
+    ## ALTITUDE PARAMETER
+    B = 6.5e-3  # temperature lapse rate in troposphere in K/m
+    R = 287  # ideal gas constant in J/(kg.K)
+    g = 9.80665  # gravity at sea level in m/s2
+    T_0 = 288.15  # standard air temperature in K
+    P_0 = 101.325  # standard air pressure in kPa
+    # Parameters
+    dt = 0.001
+    pi = 3.1415
+    ft = 3.2884  # ft/m
+    ms2mph = 0.6818182*ft
+    gs2mph = ms2mph * g
+
+    ## IMU PROCESS
+    # Read in the dataframe
+    fields = ['Timestamp', 'Pres',
+    'Roll', 'Pitch', 'Yaw',
+    'LinearAccelNed X', 'LinearAccelNed Y', 'LinearAccelNed Z']
+    df = pd.read_csv(imu_data_file_and_path, skipinitialspace=True, usecols=fields)
+
+    ## EXTRACT TIME, ACCEL, AND ALTITUDE
+    imu_t = np.array(df['Timestamp'].values)
+    imu_t = imu_t - imu_t[0]
+    imu_ax = np.array(df['LinearAccelNed X'])
+    imu_ay= np.array(df['LinearAccelNed Y'])
+    imu_az = np.array(df['LinearAccelNed Z']*-1)
+    imu_a = imu_ax**2 + imu_ay**2 + imu_az**2
+    imu_a = [sqrt(val) for val in imu_a]
+    imu_N = len(imu_t);
+    imu_pres = np.array(df['Pres'])
+
+    # Vectorize this...
+    imu_temp = T_0*(imu_pres/P_0)**(R*B/g);
+    imu_alt = (T_0 - imu_temp)/B;
+
+    ## FIND TAKEOFF AND UPDATE THE ARRAYS
+    #take_off_i = find(imu_a>take_off_threshold_g,1) - 3;
+    take_off_i = np.argmax(np.array(imu_a)>take_off_threshold_g) - 3
+
+    imu_t = imu_t[take_off_i:imu_N];
+    imu_t = imu_t - imu_t[0];
+
+    imu_ax = imu_ax[take_off_i:imu_N]; 
+    imu_ay = imu_ay[take_off_i:imu_N];
+    imu_az = imu_az[take_off_i:imu_N];
+    imu_a = imu_a[take_off_i:imu_N];
+
+    imu_alt = imu_alt[take_off_i:imu_N];
+    imu_alt = imu_alt - imu_alt[1];
+    imu_alt[0] = 0
+    imu_alt = [val if val>0 else 0 for val in imu_alt]
+
+    take_off_i = 0
+
+    ## FIND LANDING AND UPDATE THE ARRAYS
+    #[minDistance, minIndex] = min(abs(imu_t - (predicted_flight_duration-landing_advance_time)));
+    minDistance = np.amin(abs(imu_t - (predicted_flight_duration - landing_advance_time)))
+    minIndex = np.where(abs(imu_t - (predicted_flight_duration - landing_advance_time)) == minDistance)[0][0]
+    #[maxDistance, maxIndex] = min(abs(imu_t - (predicted_flight_duration+landing_advance_time)));
+    maxDistance = np.amin(abs(imu_t - (predicted_flight_duration + landing_advance_time)))
+    maxIndex = np.where(abs(imu_t - (predicted_flight_duration + landing_advance_time)) == maxDistance)[0][0]
+
+    temp_accel = imu_a[minIndex:maxIndex];
+
+    #landing_i = find(temp_accel>landing_threshold_g,1)+minIndex;
+    #landing_i = np.argmax(np.array(temp_accel)>landing_threshold_g) + minIndex
+    try:
+        landing_i = np.argmax(np.array(temp_accel)>landing_threshold_g) + minIndex
+    except ValueError:
+        landing_i = minIndex
+    if landing_i == minIndex:
+        minDistance = np.amin(abs(imu_t - (predicted_flight_duration)))
+        landing_i = np.where(abs(imu_t - (predicted_flight_duration)) == minDistance)[0][0]
+
+    imu_t = imu_t[0:landing_i];
+    imu_ax = imu_ax[0:landing_i]; 
+    imu_ay = imu_ay[0:landing_i];
+    imu_az = imu_az[0:landing_i];
+    imu_a = imu_a[0:landing_i];
+    imu_alt = imu_alt[0:landing_i];
+    imu_N = len(imu_t)
+
+    ## DISPLAY RESULTS
+    print(f"Take-Off Time (s) = {imu_t[take_off_i]}");
+    print(f"Landing (s) = {imu_t[landing_i-1]}");
+
+    imu_vz = np.zeros(imu_N)
+    imu_z = np.zeros(imu_N)
+
+    imu_vy = np.zeros(imu_N)
+    imu_y = np.zeros(imu_N)
+
+    imu_vx = np.zeros(imu_N)
+    imu_x = np.zeros(imu_N)
+
+    # Find the displacement after imu_end_time
+    ################## Find velocity and position  ##################
+    for i in range(len(imu_t)-1):
+        imu_vz[i+1] = imu_vz[i] + imu_az[i]*(imu_t[i+1] - imu_t[i])
+        imu_z[i+1] = imu_z[i] + imu_vz[i]*(imu_t[i+1] - imu_t[i])
+
+        imu_vx[i+1] = imu_vx[i] + imu_ax[i]*(imu_t[i+1] - imu_t[i])
+        imu_x[i+1] = imu_x[i] + imu_vx[i]*(imu_t[i+1] - imu_t[i])
+
+        imu_vy[i+1] = imu_vy[i] + imu_ay[i]*(imu_t[i+1] - imu_t[i])
+        imu_y[i+1] = imu_y[i] + imu_vy[i]*(imu_t[i+1] - imu_t[i])
+
+    # Find the max altitude
+    z_0 = max(imu_alt)
+    apogee_idx = list(imu_alt).index(z_0)
+
+    # Alternatively, we could also add 1 second to the apogee_idx and find the corresponding index
+    temp = imu_t - imu_t[apogee_idx]  - my_post_drogue_delay
+    masked_temp = np.array([val if abs(val)>10**-5 else 0 for val in temp])
+    my_min = min(abs(masked_temp))
+    if my_min < 10**-5:
+        my_min = 0
+    try:
+        imu_start_time = list(masked_temp).index(my_min)
+    except ValueError:
+        imu_start_time = list(masked_temp).index(-my_min)
+    print(f"End time of signal: {imu_t[imu_start_time]}")
+
+    temp = imu_t - imu_t[apogee_idx] - my_post_drogue_delay - my_signal_length
+    masked_temp = np.array([val if abs(val)>10**-5 else 0 for val in temp])
+    my_min = min(abs(masked_temp))
+    if my_min < 10**-5:
+        my_min = 0
+    try:
+        imu_end_time = list(masked_temp).index(my_min)
+    except ValueError:
+        imu_end_time = list(masked_temp).index(-my_min)
+    print(f"End time of signal: {imu_t[imu_end_time]}")
+
+    w0x = imu_vx[imu_end_time]-imu_vx[imu_start_time]
+    w0y = imu_vy[imu_end_time]-imu_vy[imu_start_time]
+    print(f"NUM INT WIND SPEEDS, X->{imu_vx[imu_end_time]-imu_vx[imu_start_time]} m/s and Y->{imu_vy[imu_end_time]-imu_vy[imu_start_time]} m/s")
+    print("---------------------------------------------------------------")
+    print()
+    
+    drogue_opening_displacement_x = imu_x[imu_end_time] - imu_x[imu_start_time]
+    drogue_opening_displacement_y = imu_y[imu_end_time] - imu_y[imu_start_time]
+
+    # Fix the index from MATLAB to Python
+    landing_i -= 1
+
+    m1_final_x_displacements, m1_final_y_displacements = [0]*3, [0]*3
+    m2_final_x_displacements, m2_final_y_displacements = [0]*3, [0]*3
+    for idx, uncertainty in enumerate([-1, 0, 1]):
+        #For end_time to landing
+        total_x_displacement = 0
+        total_y_displacement = 0
+        for i in range(imu_end_time, landing_i):
+            vx = (w0x+uncertainty)*((imu_alt[i]/z_0)**(1/7))
+            vy = (w0y+uncertainty)*((imu_alt[i]/z_0)**(1/7))
+            total_y_displacement += vy*(imu_t[i] - imu_t[i-1])
+            total_x_displacement += vx*(imu_t[i] - imu_t[i-1])
+
+        # Oz Ascent Model
+        m1_final_x_displacements[idx] = (imu_x[imu_start_time] - imu_x[0]) + drogue_opening_displacement_x + total_x_displacement
+        m1_final_y_displacements[idx] = (imu_y[imu_start_time] - imu_y[0]) + drogue_opening_displacement_y + total_y_displacement
+
+        # Oz's Other Ascent Model (Model 2) In Place of Marissa's Model
+        m2x = oz_ascent_model2(abs(w0x+uncertainty), imu_alt, imu_t, my_theta=ld_launch_angle, my_ssm=ld_ssm, my_dry_base=ld_dry_base, my_max_sim_time=imu_t[landing_i])[-1]
+        m2y = oz_ascent_model2(abs(w0y+uncertainty), imu_alt, imu_t, my_theta=ld_launch_angle, my_ssm=ld_ssm, my_dry_base=ld_dry_base, my_max_sim_time=imu_t[landing_i])[-1]
+        print(f"Model2 x displacement: {m2x}")
+        print(f"Model2 y displacement: {m2y}")
+
+        if m2x*w0x > 0:
+            # Then they have different signs
+            m2x *= -1
+        if m2y*w0y > 0:
+            m2y *= -1
+
+        print("AFTER POSSIBLE SIGN FLIP")
+        print(f"Model2 x displacement: {m2x}")
+        print(f"Model2 y displacement: {m2y}")
+
+        m2_final_x_displacements[idx] = m2x + drogue_opening_displacement_x + total_x_displacement
+        m2_final_y_displacements[idx] = m2y + drogue_opening_displacement_y + total_y_displacement
+
+        print(f"MODEL 1: TOTAL X AND Y DISPLACEMENTS, u={uncertainty}: X->{m1_final_x_displacements[idx]:2f} m, Y->{m1_final_y_displacements[idx]:2f} m")
+        print(f"MODEL 2: TOTAL X AND Y DISPLACEMENTS, u={uncertainty}: X->{m2_final_x_displacements[idx]} m, Y->{m2_final_y_displacements[idx]} m")
+        print()
+
+    # Take max and min of ALL 6 --> Then average for final result
+    all_xs = []
+    all_xs.extend(m1_final_x_displacements)
+    all_xs.extend(m2_final_x_displacements)
+
+    all_ys = []
+    all_ys.extend(m1_final_y_displacements)
+    all_ys.extend(m2_final_y_displacements)
+
+    minx = min(all_xs)
+    maxx = max(all_xs)
+    avg_x = (minx+maxx)/2
+
+    miny = min(all_ys)
+    maxy = max(all_ys)
+    avg_y = (miny+maxy)/2
+    
+    print("---------------------------------------------------------------")
+    print()
+    
+    print(f"Minimum-Maximum x (m): {minx} - {maxx}, u_range={maxx-minx}")
+    print(f"Minimum-Maximum y (m): {miny} - {maxy}, u_range={maxy-miny}")
+
+    print(f"Avg X displacement: {avg_x} m") 
+    print(f"Avg Y displacement: {avg_y} m") 
+    
+    new_xbox = update_xboxes(avg_x, launch_rail_box)
+    final_grid_number = update_yboxes(avg_y, new_xbox)
+    print(f"Started in grid number {launch_rail_box}, ended in {final_grid_number}")
+    return final_grid_number
 
 
 def update_xboxes(avg_x, launch_rail_box):
