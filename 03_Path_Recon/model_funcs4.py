@@ -9,7 +9,7 @@ def atan(ratio):
     return atan2(ratio, 1)
 
 
-def PYFILE_oz_ascent_model2(w_0, imu_alt, imu_t_flight, my_max_sim_time=90, my_theta=2*pi/180, my_ssm=3.2, my_dry_base=15.89):
+def oz_ascent_model2(w_0, imu_alt, imu_t_flight, my_max_sim_time=90, my_theta=2*pi/180, my_ssm=3.2, my_dry_base=15.89):
     P_0 = 101.325
     T_0 = 288.15
     R = 287
@@ -54,10 +54,8 @@ def PYFILE_oz_ascent_model2(w_0, imu_alt, imu_t_flight, my_max_sim_time=90, my_t
 
     ## MODEL #2: SIMULATE TRAJECTORY AFTER TAKE OFF
     max_sim_time = my_max_sim_time  # maximum simulation time in s
-    #^ = imu_t_flight[-1]
-    dt = imu_t_flight[1]
-    #t = np.arange(0, max_sim_time, dt)  # time array
-    t = imu_t_flight
+    dt = 0.001
+    t = np.arange(0, max_sim_time, dt)  # time array
     N = len(t)  # time array size
     z = np.zeros(N)
     x = np.zeros(N)  # z and x displacement array
