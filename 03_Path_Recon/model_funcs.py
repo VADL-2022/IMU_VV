@@ -1,6 +1,6 @@
 import numpy as np
 from pandas import read_csv
-from math import sin, cos, pi, atan2, asin, sqrt
+from math import sin, cos, pi, atan2, asin, sqrt, ceil
 import matplotlib.pyplot as plt
 from scipy import integrate
 
