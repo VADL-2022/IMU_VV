@@ -192,9 +192,19 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
         #For end_time to landing
         total_x_displacement = 0
         total_y_displacement = 0
+        
+        adj_wx = w0x+uncertainty
+        adj_wy = w0x+uncertainty
+        
+        # If we flip directions then just set it to zero, there wasn't actually any wind most likely
+        if adj_wx*w0x < 0:
+            adj_wx = 0
+        if adj_wy*w0y < 0:
+            adj_wy = 0
+        
         for i in range(imu_end_time, landing_i):
-            vx = (w0x+uncertainty)*((imu_alt[i]/z_0)**(1/7))
-            vy = (w0y+uncertainty)*((imu_alt[i]/z_0)**(1/7))
+            vx = (adj_wx)*((imu_alt[i]/z_0)**(1/7))
+            vy = (adj_wy)*((imu_alt[i]/z_0)**(1/7))
             total_y_displacement += vy*(imu_t[i] - imu_t[i-1])
             total_x_displacement += vx*(imu_t[i] - imu_t[i-1])
 
@@ -203,15 +213,15 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
         m1_final_y_displacements[idx] = (imu_y[imu_start_time] - imu_y[0]) + drogue_opening_displacement_y + total_y_displacement
 
         # Oz's Other Ascent Model (Model 2) In Place of Marissa's Model
-        m2x = oz_ascent_model2(abs(w0x+uncertainty), imu_alt, imu_t, my_theta=ld_launch_angle, my_ssm=ld_ssm, my_dry_base=ld_dry_base, my_max_sim_time=imu_t[landing_i], my_m_motor=ld_m_motor, my_t_burn=ld_t_burn, my_T_avg=ld_T_avg)[-1]
-        m2y = oz_ascent_model2(abs(w0y+uncertainty), imu_alt, imu_t, my_theta=ld_launch_angle, my_ssm=ld_ssm, my_dry_base=ld_dry_base, my_max_sim_time=imu_t[landing_i], my_m_motor=ld_m_motor, my_t_burn=ld_t_burn, my_T_avg=ld_T_avg)[-1]
+        m2x = oz_ascent_model2(abs(adj_wx), imu_alt, imu_t, my_theta=ld_launch_angle, my_ssm=ld_ssm, my_dry_base=ld_dry_base, my_max_sim_time=imu_t[landing_i], my_m_motor=ld_m_motor, my_t_burn=ld_t_burn, my_T_avg=ld_T_avg)[-1]
+        m2y = oz_ascent_model2(abs(adj_wy), imu_alt, imu_t, my_theta=ld_launch_angle, my_ssm=ld_ssm, my_dry_base=ld_dry_base, my_max_sim_time=imu_t[landing_i], my_m_motor=ld_m_motor, my_t_burn=ld_t_burn, my_T_avg=ld_T_avg)[-1]
         print(f"Model2 x displacement: {m2x}")
         print(f"Model2 y displacement: {m2y}")
 
-        if m2x*w0x > 0:
-            # Then they have different signs
+        # The model and the actual windspeed need to have opposite signs
+        if m2x*adj_wx > 0:
             m2x *= -1
-        if m2y*w0y > 0:
+        if m2y*adj_wy > 0:
             m2y *= -1
 
         print("AFTER POSSIBLE SIGN FLIP")
@@ -261,13 +271,12 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
     else:
         all_xs = [final_grid_number]
     if (maxy-miny)/2 > 250/ft:
-        all_boxes = all_xs.append(final_grid_number+1).append(final_grid_number-1)
-    else:
-        all_boxes = all_xs
-        
-    print(f"ALL GRID BOXES: {all_boxes}")
+        all_xs.append(final_grid_number+1)
+        all_xs.append(final_grid_number-1)
     
-    return all_boxes
+    print(f"ALL GRID BOXES: {all_xs}")
+    
+    return all_xs
 
 
 def update_xboxes(avg_x, launch_rail_box):
