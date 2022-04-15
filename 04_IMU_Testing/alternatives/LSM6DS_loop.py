@@ -45,7 +45,7 @@ bus.write_byte_data(address, 0x11, 0x52)
 
 def runOneIter(time_of_startup):
     # CONVERSION FACTOR TO M/S^2:
-    ac_conv_factor = 0.00482283
+    ac_conv_factor = 0.000482283
     # CONVERSION FACTOR TO DEG:
     g_conv_factor = 0.00072
     # ^^Both were empirically determined
