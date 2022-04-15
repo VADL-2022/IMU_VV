@@ -28,7 +28,11 @@ with open(my_log, 'w') as file:  # , newline=''
     new_file = writer(file)
 
 # Get I2C bus
-bus = smbus.SMBus(1)
+#bus = smbus.SMBus(1)
+#address = 0x6B
+
+# FOR THE FORE2 PI THAT IS BROKEN
+bus = smbus.SMBus(3)
 address = 0x6B
 
 #Syntax:
