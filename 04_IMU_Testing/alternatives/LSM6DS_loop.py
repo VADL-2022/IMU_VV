@@ -13,7 +13,7 @@ from numpy import array
 
 def append_list_as_row(file_name, list_of_elem):
     # Open file in append mode
-    with open(file_name, 'a+', newline='') as write_obj:
+    with open(file_name, 'a+') as write_obj:  # , newline=''
         # Create a writer object from csv module
         csv_writer = writer(write_obj)
         # Add contents of list as last row in the csv file
