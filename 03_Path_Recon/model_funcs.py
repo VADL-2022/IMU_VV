@@ -194,7 +194,7 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
         total_y_displacement = 0
         
         adj_wx = w0x+uncertainty
-        adj_wy = w0x+uncertainty
+        adj_wy = w0y+uncertainty
         
         # If we flip directions then just set it to zero, there wasn't actually any wind most likely
         if adj_wx*w0x < 0:
@@ -255,11 +255,11 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
     print("---------------------------------------------------------------")
     print()
     
-    print(f"Minimum-Maximum x (m): {minx} - {maxx}, u_range={maxx-minx}")
-    print(f"Minimum-Maximum y (m): {miny} - {maxy}, u_range={maxy-miny}")
+    print(f"Minimum-Maximum x: {minx} - {maxx} (m), u_range={maxx-minx} (m)")
+    print(f"Minimum-Maximum y: {miny} - {maxy} (m), u_range={maxy-miny} (m)")
 
-    print(f"Avg X displacement: {avg_x} m") 
-    print(f"Avg Y displacement: {avg_y} m") 
+    print(f"Avg X displacement: {avg_x} (m)") 
+    print(f"Avg Y displacement: {avg_y} (m)") 
     
     new_xbox = update_xboxes(avg_x, launch_rail_box)
     final_grid_number = update_yboxes(avg_y, new_xbox)
