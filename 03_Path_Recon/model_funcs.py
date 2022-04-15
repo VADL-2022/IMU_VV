@@ -261,8 +261,9 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
     print(f"Avg X displacement: {avg_x} (m)") 
     print(f"Avg Y displacement: {avg_y} (m)") 
     
-    new_xbox = update_xboxes(avg_x, launch_rail_box)
-    final_grid_number = update_yboxes(avg_y, new_xbox)
+    # Kai applied a fudge factor (-1) because it looks like we were mapping the wrong direction
+    new_xbox = update_xboxes(-avg_x, launch_rail_box)
+    final_grid_number = update_yboxes(-avg_y, new_xbox)
     print(f"Started in grid number {launch_rail_box}, ended in {final_grid_number} (average)")
     
     # Somewhat shoddy logic
