@@ -24,7 +24,7 @@ timestr = strftime("%Y%m%d-%H%M%S")
 my_log = "LSM_LOG_" + timestr + ".csv"
 
 # Create a new (empty) csv file
-with open(my_log, 'w', newline='') as file:
+with open(my_log, 'w') as file:  # , newline=''
     new_file = writer(file)
 
 # Get I2C bus
