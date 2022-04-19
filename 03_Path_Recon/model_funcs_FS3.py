@@ -97,40 +97,12 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
     ## FIND LANDING AND UPDATE THE ARRAYS
     #[minDistance, minIndex] = min(abs(imu_t - (predicted_flight_duration-landing_advance_time)));
     minDistance = np.amin(abs(imu_t - (predicted_flight_duration - landing_advance_time)))
-    try:
-        minIndex = np.where(abs(imu_t - (predicted_flight_duration - landing_advance_time)) == minDistance)
-        print(minIndex)
-        minIndex = minIndex[0][0]
-    except IndexError:
-        try:
-            minIndex = np.where(abs(imu_t - (predicted_flight_duration - landing_advance_time)) == minDistance)[0]
-            print("Setting minIndex to -1")
-            minIndex = -1
-        except IndexError:
-            minIndex = np.where(abs(imu_t - (predicted_flight_duration - landing_advance_time)) == minDistance)
-            print("Setting minIndex to -1")
-            minIndex = -1
-    
+    minIndex = np.where(abs(imu_t - (predicted_flight_duration - landing_advance_time)) == minDistance)[0][0]
     #[maxDistance, maxIndex] = min(abs(imu_t - (predicted_flight_duration+landing_advance_time)));
     maxDistance = np.amin(abs(imu_t - (predicted_flight_duration + landing_advance_time)))
-    try:
-        maxIndex = np.where(abs(imu_t - (predicted_flight_duration + landing_advance_time)) == minDistance)
-        print(maxIndex)
-        maxIndex = maxIndex[0][0]
-    except IndexError:
-        try:
-            maxIndex = np.where(abs(imu_t - (predicted_flight_duration + landing_advance_time)) == minDistance)[0]
-            print("Setting maxIndex to -1")
-            maxIndex = -1
-        except IndexError:
-            maxIndex = np.where(abs(imu_t - (predicted_flight_duration + landing_advance_time)) == minDistance)
-            print("Setting maxIndex to -1")
-            maxIndex = -1
+    maxIndex = np.where(abs(imu_t - (predicted_flight_duration + landing_advance_time)) == maxDistance)[0][0]
 
-    try:
-        temp_accel = imu_a[minIndex:maxIndex];
-    except:
-        temp_accel = [0]
+    temp_accel = imu_a[minIndex:maxIndex];
 
     #landing_i = find(temp_accel>landing_threshold_g,1)+minIndex;
     #landing_i = np.argmax(np.array(temp_accel)>landing_threshold_g) + minIndex
@@ -140,14 +112,7 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
         landing_i = minIndex
     if landing_i == minIndex:
         minDistance = np.amin(abs(imu_t - (predicted_flight_duration)))
-        try:
-            landing_i = np.where(abs(imu_t - (predicted_flight_duration)) == minDistance)[0][0]
-        except:
-            print("The predicted flight time is probably wrong")
-            if predicted_flight_duration < 60:
-                landing_i = np.where(abs(imu_t - (90)) == minDistance)[0][0] 
-            elif predicted_flight_duration > 80:
-                landing_i = np.where(abs(imu_t - (120)) == minDistance)[0][0] 
+        landing_i = np.where(abs(imu_t - (predicted_flight_duration)) == minDistance)[0][0]
 
     imu_t = imu_t[0:landing_i];
     imu_ax = imu_ax[0:landing_i]; 
