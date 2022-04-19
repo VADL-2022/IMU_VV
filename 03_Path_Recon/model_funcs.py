@@ -3,7 +3,7 @@ from pandas import read_csv
 from math import sin, cos, pi, atan2, asin, sqrt, ceil
 
 
-def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my_post_drogue_delay=0.85, my_signal_length=3, my_t_sim_landing=50, ld_launch_angle=2*pi/180, ld_ssm=3.2, ld_dry_base=15.89, ld_m_motor=0.773, ld_t_burn=1.57, ld_T_avg=1000):
+def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_stats_xy, my_thresh=50, my_post_drogue_delay=0.85, my_signal_length=3, my_t_sim_landing=50, ld_launch_angle=2*pi/180, ld_ssm=3.2, ld_dry_base=15.89, ld_m_motor=0.773, ld_t_burn=1.57, ld_T_avg=1000):
     '''
     This is the main function, the rest are all nested functions called by this one.
     
@@ -99,7 +99,7 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
     minDistance = np.amin(abs(imu_t - (predicted_flight_duration - landing_advance_time)))
     try:
         minIndex = np.where(abs(imu_t - (predicted_flight_duration - landing_advance_time)) == minDistance)
-        print(minIndex)
+        #print(minIndex)
         minIndex = minIndex[0][0]
     except IndexError:
         try:
@@ -115,7 +115,7 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
     maxDistance = np.amin(abs(imu_t - (predicted_flight_duration + landing_advance_time)))
     try:
         maxIndex = np.where(abs(imu_t - (predicted_flight_duration + landing_advance_time)) == minDistance)
-        print(maxIndex)
+        #print(maxIndex)
         maxIndex = maxIndex[0][0]
     except IndexError:
         try:
@@ -132,22 +132,29 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
     except:
         temp_accel = [0]
 
-    #landing_i = find(temp_accel>landing_threshold_g,1)+minIndex;
-    #landing_i = np.argmax(np.array(temp_accel)>landing_threshold_g) + minIndex
+    # NEW ALTITUDE BASED LANDING DETECTION
+    minDistance = np.amin(abs(imu_t - 150))
     try:
-        landing_i = np.argmax(np.array(temp_accel)>landing_threshold_g) + minIndex
-    except ValueError:
-        landing_i = minIndex
-    if landing_i == minIndex:
-        minDistance = np.amin(abs(imu_t - (predicted_flight_duration)))
+        lateLandingIndex = np.where(abs(imu_t - 150) == minDistance)
+        #print(lateLandingIndex)
+        lateLandingIndex = lateLandingIndex[0][0]
+    except IndexError:
         try:
-            landing_i = np.where(abs(imu_t - (predicted_flight_duration)) == minDistance)[0][0]
-        except:
-            print("The predicted flight time is probably wrong")
-            if predicted_flight_duration < 60:
-                landing_i = np.where(abs(imu_t - (90)) == minDistance)[0][0] 
-            elif predicted_flight_duration > 80:
-                landing_i = np.where(abs(imu_t - (120)) == minDistance)[0][0] 
+            lateLandingIndex = np.where(abs(imu_t - 150) == minDistance)[0]
+            print("Setting lateLandingIndex to -1")
+            lateLandingIndex = -1
+        except IndexError:
+            lateLandingIndex = np.where(abs(imu_t - 150) == minDistance)
+            print("Setting lateLandingIndex to -1")
+            lateLandingIndex = -1
+            
+    lateAltitude = imu_alt[lateLandingIndex]
+    i = lateLandingIndex
+    
+    while imu_alt[i] < (lateAltitude + 10):  # 10m of uncertainty
+        i -= 1
+            
+    landing_i = i + 100
 
     imu_t = imu_t[0:landing_i];
     imu_ax = imu_ax[0:landing_i]; 
@@ -170,7 +177,6 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
     imu_vx = np.zeros(imu_N)
     imu_x = np.zeros(imu_N)
 
-    # Find the displacement after imu_end_time
     ################## Find velocity and position  ##################
     for i in range(len(imu_t)-1):
         imu_vz[i+1] = imu_vz[i] + imu_az[i]*(imu_t[i+1] - imu_t[i])
@@ -211,66 +217,182 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
 
     w0x = imu_vx[imu_end_time]-imu_vx[imu_start_time]
     w0y = imu_vy[imu_end_time]-imu_vy[imu_start_time]
-    print(f"NUM INT WIND SPEEDS, X->{imu_vx[imu_end_time]-imu_vx[imu_start_time]} m/s and Y->{imu_vy[imu_end_time]-imu_vy[imu_start_time]} m/s")
-    print("---------------------------------------------------------------")
-    print()
+    print(f"IMU WIND SPEEDS, X->{w0x} m/s and Y->{w0y} m/s")
     
-    drogue_opening_displacement_x = imu_x[imu_end_time] - imu_x[imu_start_time]
-    drogue_opening_displacement_y = imu_y[imu_end_time] - imu_y[imu_start_time]
+    wx_ws, wy_ws = weather_station_stats_xy[0]/2.237, weather_station_stats_xy[1]/2.237
+    wx_ws_apogee, wy_ws_apogee = wx_ws*((z_0/2)**(1/7)), wy_ws*((z_0/2)**(1/7))
+    
+    # If we flip directions then just set it to zero, there wasn't actually any wind most likely
+    if wx_ws is not 0 and wx_ws*w0x < 0:
+        w0x = wx_ws_apogee
+    if wy_ws is not 0 and wy_ws*w0y < 0:
+        w0y = wy_ws_apogee
+    print(f"UPDATED WIND SPEEDS, X->{w0x} m/s and Y->{w0y} m/s")
+    if abs(w0x) < 1:
+        w0x = 0
+        # LOOP 1
+        print("LOOP 1")
 
-    # Fix the index from MATLAB to Python
-    landing_i -= 1
+        drogue_opening_displacement_y = imu_y[imu_end_time] - imu_y[imu_start_time]
 
-    m1_final_x_displacements, m1_final_y_displacements = [0]*3, [0]*3
-    m2_final_x_displacements, m2_final_y_displacements = [0]*3, [0]*3
-    for idx, uncertainty in enumerate([-1, 0, 1]):
-        #For end_time to landing
-        total_x_displacement = 0
-        total_y_displacement = 0
+        m1_final_x_displacements, m1_final_y_displacements = [0]*3, [0]*3
+        m2_final_x_displacements, m2_final_y_displacements = [0]*3, [0]*3
+        for idx, uncertainty in enumerate([-1, 0, 1]):
+            #For end_time to landing
+            total_y_displacement = 0
+
+            adj_wy = w0y+uncertainty
+
+            # If we flip directions then just set it to zero, there wasn't actually any wind most likely
+            if adj_wy*w0y < 0:
+                adj_wy = 0
+
+            for i in range(imu_end_time, landing_i):
+                vy = (adj_wy)*((imu_alt[i]/z_0)**(1/7))
+                total_y_displacement += vy*(imu_t[i] - imu_t[i-1])
+
+            # Oz Ascent Model
+            m1_final_x_displacements[idx] = (imu_x[imu_start_time] - imu_x[0])
+            m1_final_y_displacements[idx] = (imu_y[imu_start_time] - imu_y[0]) + drogue_opening_displacement_y + total_y_displacement
+
+            # Oz's Other Ascent Model (Model 2) In Place of Marissa's Model
+            landing_i -= 1
+            m2y = oz_ascent_model2(abs(adj_wy), imu_alt, imu_t, my_theta=ld_launch_angle, my_ssm=ld_ssm, my_dry_base=ld_dry_base, my_max_sim_time=imu_t[landing_i], my_m_motor=ld_m_motor, my_t_burn=ld_t_burn, my_T_avg=ld_T_avg)[-1]
+            print(f"Model2 y displacement: {m2y}")
+
+            # The model and the actual windspeed need to have opposite signs
+            if m2y*adj_wy > 0:
+                m2y *= -1
+
+            print("AFTER POSSIBLE SIGN FLIP")
+            print(f"Model2 y displacement: {m2y}")
+
+            m2_final_x_displacements[idx] = 0
+            m2_final_y_displacements[idx] = m2y + drogue_opening_displacement_y + total_y_displacement
+
+            print(f"MODEL 1: TOTAL X AND Y DISPLACEMENTS, u={uncertainty}: X->{m1_final_x_displacements[idx]:2f} m, Y->{m1_final_y_displacements[idx]:2f} m")
+            print(f"MODEL 2: TOTAL X AND Y DISPLACEMENTS, u={uncertainty}: X->{0} m, Y->{m2_final_y_displacements[idx]} m")
+            print()
+
+    if abs(w0y) < 1:
+        w0y = 0
+        # LOOP 2
+        print("LOOP 2")
         
-        adj_wx = w0x+uncertainty
-        adj_wy = w0y+uncertainty
+        drogue_opening_displacement_x = imu_x[imu_end_time] - imu_x[imu_start_time]
+
+        m1_final_x_displacements, m1_final_y_displacements = [0]*3, [0]*3
+        m2_final_x_displacements, m2_final_y_displacements = [0]*3, [0]*3
+        for idx, uncertainty in enumerate([-1, 0, 1]):
+            #For end_time to landing
+            total_x_displacement = 0
+            adj_wx = w0x+uncertainty
+
+            # If we flip directions then just set it to zero, there wasn't actually any wind most likely
+            if adj_wx*w0x < 0:
+                adj_wx = 0
+
+            for i in range(imu_end_time, landing_i):
+                vx = (adj_wx)*((imu_alt[i]/z_0)**(1/7))
+                total_x_displacement += vx*(imu_t[i] - imu_t[i-1])
+
+            # Oz Ascent Model
+            m1_final_x_displacements[idx] = (imu_x[imu_start_time] - imu_x[0]) + drogue_opening_displacement_x + total_x_displacement
+            m1_final_y_displacements[idx] = (imu_y[imu_start_time] - imu_y[0])
+
+            # Oz's Other Ascent Model (Model 2) In Place of Marissa's Model
+            landing_i -= 1
+            print(abs(adj_wx))
+            m2x = oz_ascent_model2(abs(adj_wx), imu_alt, imu_t, my_theta=ld_launch_angle, my_ssm=ld_ssm, my_dry_base=ld_dry_base, my_max_sim_time=imu_t[landing_i], my_m_motor=ld_m_motor, my_t_burn=ld_t_burn, my_T_avg=ld_T_avg)[-1]
+            m2y = 0
+            print(f"Model2 x displacement: {m2x}")
+            print(f"Model2 y displacement: {m2y}")
+
+            # The model and the actual windspeed need to have opposite signs
+            if m2x*adj_wx < 0:
+                m2x *= -1
+
+            print("AFTER POSSIBLE SIGN FLIP")
+            print(f"Model2 x displacement: {m2x}")
+            print(f"Model2 y displacement: {m2y}")
+
+            m2_final_x_displacements[idx] = m2x + drogue_opening_displacement_x + total_x_displacement
+            m2_final_y_displacements[idx] = 0
+
+            print(f"MODEL 1: TOTAL X AND Y DISPLACEMENTS, u={uncertainty}: X->{m1_final_x_displacements[idx]:2f} m, Y->{m1_final_y_displacements[idx]:2f} m")
+            print(f"MODEL 2: TOTAL X AND Y DISPLACEMENTS, u={uncertainty}: X->{m2_final_x_displacements[idx]} m, Y->{m2_final_y_displacements[idx]} m")
+            print()  
         
-        # If we flip directions then just set it to zero, there wasn't actually any wind most likely
-        if adj_wx*w0x < 0:
-            adj_wx = 0
-        if adj_wy*w0y < 0:
-            adj_wy = 0
-        
-        for i in range(imu_end_time, landing_i):
-            vx = (adj_wx)*((imu_alt[i]/z_0)**(1/7))
-            vy = (adj_wy)*((imu_alt[i]/z_0)**(1/7))
-            total_y_displacement += vy*(imu_t[i] - imu_t[i-1])
-            total_x_displacement += vx*(imu_t[i] - imu_t[i-1])
+    if w0y==0 and w0x==0:
+        # LOOP 3
+        print("LOOP 3")
 
         # Oz Ascent Model
-        m1_final_x_displacements[idx] = (imu_x[imu_start_time] - imu_x[0]) + drogue_opening_displacement_x + total_x_displacement
-        m1_final_y_displacements[idx] = (imu_y[imu_start_time] - imu_y[0]) + drogue_opening_displacement_y + total_y_displacement
+        m1_final_x_displacements = (imu_x[imu_start_time] - imu_x[0])
+        m1_final_y_displacements = (imu_y[imu_start_time] - imu_y[0])
 
-        # Oz's Other Ascent Model (Model 2) In Place of Marissa's Model
-        m2x = oz_ascent_model2(abs(adj_wx), imu_alt, imu_t, my_theta=ld_launch_angle, my_ssm=ld_ssm, my_dry_base=ld_dry_base, my_max_sim_time=imu_t[landing_i], my_m_motor=ld_m_motor, my_t_burn=ld_t_burn, my_T_avg=ld_T_avg)[-1]
-        m2y = oz_ascent_model2(abs(adj_wy), imu_alt, imu_t, my_theta=ld_launch_angle, my_ssm=ld_ssm, my_dry_base=ld_dry_base, my_max_sim_time=imu_t[landing_i], my_m_motor=ld_m_motor, my_t_burn=ld_t_burn, my_T_avg=ld_T_avg)[-1]
-        print(f"Model2 x displacement: {m2x}")
-        print(f"Model2 y displacement: {m2y}")
-
-        # The model and the actual windspeed need to have opposite signs
-        if m2x*adj_wx > 0:
-            m2x *= -1
-        if m2y*adj_wy > 0:
-            m2y *= -1
-
-        print("AFTER POSSIBLE SIGN FLIP")
-        print(f"Model2 x displacement: {m2x}")
-        print(f"Model2 y displacement: {m2y}")
-
-        m2_final_x_displacements[idx] = m2x + drogue_opening_displacement_x + total_x_displacement
-        m2_final_y_displacements[idx] = m2y + drogue_opening_displacement_y + total_y_displacement
-
-        print(f"MODEL 1: TOTAL X AND Y DISPLACEMENTS, u={uncertainty}: X->{m1_final_x_displacements[idx]:2f} m, Y->{m1_final_y_displacements[idx]:2f} m")
-        print(f"MODEL 2: TOTAL X AND Y DISPLACEMENTS, u={uncertainty}: X->{m2_final_x_displacements[idx]} m, Y->{m2_final_y_displacements[idx]} m")
+        print(f"MODEL 1: TOTAL X AND Y DISPLACEMENTS: X->{m1_final_x_displacements[idx]:2f} m, Y->{m1_final_y_displacements[idx]:2f} m")
         print()
 
-    # Take max and min of ALL 6 --> Then average for final result
+    elif w0y is not 0 and w0x is not 0:
+        # LOOP 4
+        print("LOOP 4")
+        
+        drogue_opening_displacement_x = imu_x[imu_end_time] - imu_x[imu_start_time]
+        drogue_opening_displacement_y = imu_y[imu_end_time] - imu_y[imu_start_time]
+
+        # Fix the index from MATLAB to Python
+        landing_i -= 1
+
+        m1_final_x_displacements, m1_final_y_displacements = [0]*3, [0]*3
+        m2_final_x_displacements, m2_final_y_displacements = [0]*3, [0]*3
+        for idx, uncertainty in enumerate([-1, 0, 1]):
+            #For end_time to landing
+            total_x_displacement = 0
+            total_y_displacement = 0
+
+            adj_wx = w0x+uncertainty
+            adj_wy = w0y+uncertainty
+
+            # If we flip directions then just set it to zero, there wasn't actually any wind most likely
+            if adj_wx*w0x < 0:
+                adj_wx = 0
+            if adj_wy*w0y < 0:
+                adj_wy = 0
+
+            for i in range(imu_end_time, landing_i):
+                vx = (adj_wx)*((imu_alt[i]/z_0)**(1/7))
+                vy = (adj_wy)*((imu_alt[i]/z_0)**(1/7))
+                total_y_displacement += vy*(imu_t[i] - imu_t[i-1])
+                total_x_displacement += vx*(imu_t[i] - imu_t[i-1])
+
+            # Oz Ascent Model
+            m1_final_x_displacements[idx] = (imu_x[imu_start_time] - imu_x[0]) + drogue_opening_displacement_x + total_x_displacement
+            m1_final_y_displacements[idx] = (imu_y[imu_start_time] - imu_y[0]) + drogue_opening_displacement_y + total_y_displacement
+
+            # Oz's Other Ascent Model (Model 2) In Place of Marissa's Model
+            m2x = oz_ascent_model2(abs(adj_wx), imu_alt, imu_t, my_theta=ld_launch_angle, my_ssm=ld_ssm, my_dry_base=ld_dry_base, my_max_sim_time=imu_t[landing_i], my_m_motor=ld_m_motor, my_t_burn=ld_t_burn, my_T_avg=ld_T_avg)[-1]
+            m2y = oz_ascent_model2(abs(adj_wy), imu_alt, imu_t, my_theta=ld_launch_angle, my_ssm=ld_ssm, my_dry_base=ld_dry_base, my_max_sim_time=imu_t[landing_i], my_m_motor=ld_m_motor, my_t_burn=ld_t_burn, my_T_avg=ld_T_avg)[-1]
+            print(f"Model2 x displacement: {m2x}")
+            print(f"Model2 y displacement: {m2y}")
+
+            # The model and the actual windspeed need to have opposite signs
+            if m2x*adj_wx > 0:
+                m2x *= -1
+            if m2y*adj_wy > 0:
+                m2y *= -1
+
+            print("AFTER POSSIBLE SIGN FLIP")
+            print(f"Model2 x displacement: {m2x}")
+            print(f"Model2 y displacement: {m2y}")
+
+            m2_final_x_displacements[idx] = m2x + drogue_opening_displacement_x + total_x_displacement
+            m2_final_y_displacements[idx] = m2y + drogue_opening_displacement_y + total_y_displacement
+
+            print(f"MODEL 1: TOTAL X AND Y DISPLACEMENTS, u={uncertainty}: X->{m1_final_x_displacements[idx]:2f} m, Y->{m1_final_y_displacements[idx]:2f} m")
+            print(f"MODEL 2: TOTAL X AND Y DISPLACEMENTS, u={uncertainty}: X->{m2_final_x_displacements[idx]} m, Y->{m2_final_y_displacements[idx]} m")
+            print()
+
     all_xs = []
     all_xs.extend(m1_final_x_displacements)
     all_xs.extend(m2_final_x_displacements)
@@ -281,26 +403,25 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
 
     minx = min(all_xs)
     maxx = max(all_xs)
-    avg_x = (minx+maxx)/2
+    avg_x = -(minx+maxx)/2
 
     miny = min(all_ys)
     maxy = max(all_ys)
-    avg_y = (miny+maxy)/2
-    
+    avg_y = -(miny+maxy)/2
+
     print("---------------------------------------------------------------")
     print()
-    
+
     print(f"Minimum-Maximum x: {minx} - {maxx} (m), u_range={maxx-minx} (m)")
     print(f"Minimum-Maximum y: {miny} - {maxy} (m), u_range={maxy-miny} (m)")
 
     print(f"Avg X displacement: {avg_x} (m)") 
     print(f"Avg Y displacement: {avg_y} (m)") 
-    
-    # Kai applied a fudge factor (-1) because it looks like we were mapping the wrong direction
-    new_xbox = update_xboxes(-avg_x, launch_rail_box)
-    final_grid_number = update_yboxes(-avg_y, new_xbox)
+
+    new_xbox = update_xboxes(avg_x, launch_rail_box)
+    final_grid_number = update_yboxes(avg_y, new_xbox)
     print(f"Started in grid number {launch_rail_box}, ended in {final_grid_number} (average)")
-    
+
     # Somewhat shoddy logic
     if (maxx-minx)/2 > 250/ft:
         all_xs = [final_grid_number, final_grid_number+20, final_grid_number-20]
@@ -309,9 +430,9 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, my_thresh=50, my
     if (maxy-miny)/2 > 250/ft:
         all_xs.append(final_grid_number+1)
         all_xs.append(final_grid_number-1)
-    
+
     print(f"ALL GRID BOXES: {all_xs}")
-    
+
     return all_xs
 
 
