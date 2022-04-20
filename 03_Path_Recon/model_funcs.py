@@ -94,65 +94,19 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
 
     take_off_i = 0
 
-    ## FIND LANDING AND UPDATE THE ARRAYS
-    #[minDistance, minIndex] = min(abs(imu_t - (predicted_flight_duration-landing_advance_time)));
-    minDistance = np.amin(abs(imu_t - (predicted_flight_duration - landing_advance_time)))
-    try:
-        minIndex = np.where(abs(imu_t - (predicted_flight_duration - landing_advance_time)) == minDistance)
-        #print(minIndex)
-        minIndex = minIndex[0][0]
-    except IndexError:
-        try:
-            minIndex = np.where(abs(imu_t - (predicted_flight_duration - landing_advance_time)) == minDistance)[0]
-            print("Setting minIndex to -1")
-            minIndex = -1
-        except IndexError:
-            minIndex = np.where(abs(imu_t - (predicted_flight_duration - landing_advance_time)) == minDistance)
-            print("Setting minIndex to -1")
-            minIndex = -1
-    
-    #[maxDistance, maxIndex] = min(abs(imu_t - (predicted_flight_duration+landing_advance_time)));
-    maxDistance = np.amin(abs(imu_t - (predicted_flight_duration + landing_advance_time)))
-    try:
-        maxIndex = np.where(abs(imu_t - (predicted_flight_duration + landing_advance_time)) == minDistance)
-        #print(maxIndex)
-        maxIndex = maxIndex[0][0]
-    except IndexError:
-        try:
-            maxIndex = np.where(abs(imu_t - (predicted_flight_duration + landing_advance_time)) == minDistance)[0]
-            print("Setting maxIndex to -1")
-            maxIndex = -1
-        except IndexError:
-            maxIndex = np.where(abs(imu_t - (predicted_flight_duration + landing_advance_time)) == minDistance)
-            print("Setting maxIndex to -1")
-            maxIndex = -1
-
     try:
         temp_accel = imu_a[minIndex:maxIndex];
     except:
         temp_accel = [0]
 
     # NEW ALTITUDE BASED LANDING DETECTION
-    minDistance = np.amin(abs(imu_t - 150))
-    try:
-        lateLandingIndex = np.where(abs(imu_t - 150) == minDistance)
-        #print(lateLandingIndex)
-        lateLandingIndex = lateLandingIndex[0][0]
-    except IndexError:
-        try:
-            lateLandingIndex = np.where(abs(imu_t - 150) == minDistance)[0]
-            print("Setting lateLandingIndex to -1")
-            lateLandingIndex = -1
-        except IndexError:
-            lateLandingIndex = np.where(abs(imu_t - 150) == minDistance)
-            print("Setting lateLandingIndex to -1")
-            lateLandingIndex = -1
-            
+    lateLandingIndex = np.argmin((abs(imu_t - 150)))#[0][0]
+
     lateAltitude = imu_alt[lateLandingIndex]
     i = lateLandingIndex
     
     while imu_alt[i] < (lateAltitude + 10):  # 10m of uncertainty
-        i -= 1
+        i -= 10
             
     landing_i = i + 100
 
@@ -202,7 +156,7 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
         imu_start_time = list(masked_temp).index(my_min)
     except ValueError:
         imu_start_time = list(masked_temp).index(-my_min)
-    print(f"End time of signal: {imu_t[imu_start_time]}")
+    print(f"Start time of signal: {imu_t[imu_start_time]}")
 
     temp = imu_t - imu_t[apogee_idx] - my_post_drogue_delay - my_signal_length
     masked_temp = np.array([val if abs(val)>10**-5 else 0 for val in temp])
@@ -232,6 +186,7 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
         w0x = 0
         # LOOP 1
         print("LOOP 1")
+        print(f"UPDATED WIND SPEEDS, X->{w0x} m/s and Y->{w0y} m/s")
 
         drogue_opening_displacement_y = imu_y[imu_end_time] - imu_y[imu_start_time]
 
@@ -278,6 +233,7 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
         w0y = 0
         # LOOP 2
         print("LOOP 2")
+        print(f"UPDATED WIND SPEEDS, X->{w0x} m/s and Y->{w0y} m/s")
         
         drogue_opening_displacement_x = imu_x[imu_end_time] - imu_x[imu_start_time]
 
@@ -309,7 +265,7 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
             print(f"Model2 y displacement: {m2y}")
 
             # The model and the actual windspeed need to have opposite signs
-            if m2x*adj_wx < 0:
+            if m2x*adj_wx > 0:
                 m2x *= -1
 
             print("AFTER POSSIBLE SIGN FLIP")
@@ -326,6 +282,7 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
     if w0y==0 and w0x==0:
         # LOOP 3
         print("LOOP 3")
+        print(f"UPDATED WIND SPEEDS, X->{w0x} m/s and Y->{w0y} m/s")
 
         # Oz Ascent Model
         m1_final_x_displacements = (imu_x[imu_start_time] - imu_x[0])
@@ -337,6 +294,7 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
     elif w0y is not 0 and w0x is not 0:
         # LOOP 4
         print("LOOP 4")
+        print(f"UPDATED WIND SPEEDS, X->{w0x} m/s and Y->{w0y} m/s")
         
         drogue_opening_displacement_x = imu_x[imu_end_time] - imu_x[imu_start_time]
         drogue_opening_displacement_y = imu_y[imu_end_time] - imu_y[imu_start_time]
@@ -403,11 +361,11 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
 
     minx = min(all_xs)
     maxx = max(all_xs)
-    avg_x = -(minx+maxx)/2
+    avg_x = (minx+maxx)/2
 
     miny = min(all_ys)
     maxy = max(all_ys)
-    avg_y = -(miny+maxy)/2
+    avg_y = (miny+maxy)/2
 
     print("---------------------------------------------------------------")
     print()
@@ -418,8 +376,8 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
     print(f"Avg X displacement: {avg_x} (m)") 
     print(f"Avg Y displacement: {avg_y} (m)") 
 
-    new_xbox = update_xboxes(avg_x, launch_rail_box)
-    final_grid_number = update_yboxes(avg_y, new_xbox)
+    new_xbox = update_xboxes(-avg_x, launch_rail_box)
+    final_grid_number = update_yboxes(-avg_y, new_xbox)
     print(f"Started in grid number {launch_rail_box}, ended in {final_grid_number} (average)")
 
     # Somewhat shoddy logic
