@@ -3,18 +3,17 @@ from pandas import read_csv
 from math import sin, cos, pi, atan2, asin, sqrt, ceil
 
 
-def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_stats_xy, my_thresh=50, my_post_drogue_delay=0.85, my_signal_length=3, my_t_sim_landing=50, ld_launch_angle=2*pi/180, ld_ssm=3.2, ld_dry_base=15.89, ld_m_motor=0.773, ld_t_burn=1.57, ld_T_avg=1000):
+def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_stats_xy, my_thresh=45, my_post_drogue_delay=0.85, my_signal_length=3, ld_launch_angle=5*pi/180, ld_ssm=2.44, ld_dry_base=15.735, ld_m_motor=1.728187, ld_t_burn=2.05, ld_T_avg=1771):
     '''
     This is the main function, the rest are all nested functions called by this one.
     
     REQUIRED PARAMETERS
     imu_data_file_and_path: string containing the file name and location of the IMU CSV file.  E.g. "../../Data/VN_LOG_1234567.csv"
-    launch_rail_box: grid box number that the launch rail is in.  Probably will only know this on launch day, so pass in arguement
+    launch_rail_box: grid box number that the launch rail is in.  Probably will only know this on launch day, so pass in argument
+    weather_station_stats_xy: the wind speed of the x and y directions as given by the weather report
     
     YOU NEED TO UPDATE THESE ON LAUNCH DAY
-    my_t_sim_landing: total time for length of the flight (takeoff to landing).  This depends on the motor used
     ld_launch_angle: launch day launch angle (e.g. angle of the launch rail)
-        ^ Don't have a way to account for which axis it is tilted in, or if it's tilted in more than 1 axis...
     ld_ssm: launch day ssm
     ld_dry_base: dry mass of the launch day vehicle NOT INCLUDING THE MOTOR
     ld_m_motor: motor mass, change for fullscale vs subscale
@@ -22,8 +21,8 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
     ld_T_avg: motor thrust, change for fullscale vs subscale
     
     PROBABLY DONT NEED TO CHANGE THESE
-    my_thresh: acceleration threshold to check for takeoff.  Currently 50 m/s2
-    my_post_drogue_delay: time after apogee to wait for 0 acceleration transcience to pass
+    my_thresh: acceleration threshold to check for takeoff.  Currently 45 m/s2
+    my_post_drogue_delay: time after apogee to wait for 0 acceleration transience to pass
     my_signal_length: length of analysis window, 3 seconds
     
     RETURNS
@@ -38,7 +37,6 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
     take_off_threshold_g = my_thresh;
     landing_threshold_g = my_thresh;
     landing_advance_time = 15;
-    predicted_flight_duration = my_t_sim_landing; 
 
     ## ALTITUDE PARAMETER
     B = 6.5e-3  # temperature lapse rate in troposphere in K/m
