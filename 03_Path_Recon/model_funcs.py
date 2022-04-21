@@ -179,17 +179,19 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
         w0x = wx_ws_apogee
     if wy_ws is not 0 and wy_ws*w0y < 0:
         w0y = wy_ws_apogee
-    print(f"UPDATED WIND SPEEDS, X->{w0x} m/s and Y->{w0y} m/s")
-    if abs(w0x) < 1:
+    print(f"UPDATED WIND SPEEDS (weather report), X->{w0x} m/s and Y->{w0y} m/s")
+    
+    m1_final_x_displacements, m1_final_y_displacements = [0]*3, [0]*3
+    m2_final_x_displacements, m2_final_y_displacements = [0]*3, [0]*3
+    
+    if (abs(w0x) < 1 and abs(w0y) > 1):
         w0x = 0
         # LOOP 1
         print("LOOP 1")
-        print(f"UPDATED WIND SPEEDS, X->{w0x} m/s and Y->{w0y} m/s")
+        print(f"UPDATED WIND SPEEDS (setting to 0), X->{w0x} m/s and Y->{w0y} m/s")
 
         drogue_opening_displacement_y = imu_y[imu_end_time] - imu_y[imu_start_time]
 
-        m1_final_x_displacements, m1_final_y_displacements = [0]*3, [0]*3
-        m2_final_x_displacements, m2_final_y_displacements = [0]*3, [0]*3
         for idx, uncertainty in enumerate([-1, 0, 1]):
             #For end_time to landing
             total_y_displacement = 0
@@ -227,16 +229,14 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
             print(f"MODEL 2: TOTAL X AND Y DISPLACEMENTS, u={uncertainty}: X->{0} m, Y->{m2_final_y_displacements[idx]} m")
             print()
 
-    if abs(w0y) < 1:
+    elif (abs(w0y) < 1 and abs(w0x) > 1):
         w0y = 0
         # LOOP 2
         print("LOOP 2")
-        print(f"UPDATED WIND SPEEDS, X->{w0x} m/s and Y->{w0y} m/s")
+        print(f"UPDATED WIND SPEEDS (setting to 0), X->{w0x} m/s and Y->{w0y} m/s")
         
         drogue_opening_displacement_x = imu_x[imu_end_time] - imu_x[imu_start_time]
 
-        m1_final_x_displacements, m1_final_y_displacements = [0]*3, [0]*3
-        m2_final_x_displacements, m2_final_y_displacements = [0]*3, [0]*3
         for idx, uncertainty in enumerate([-1, 0, 1]):
             #For end_time to landing
             total_x_displacement = 0
@@ -277,22 +277,24 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
             print(f"MODEL 2: TOTAL X AND Y DISPLACEMENTS, u={uncertainty}: X->{m2_final_x_displacements[idx]} m, Y->{m2_final_y_displacements[idx]} m")
             print()  
         
-    if w0y==0 and w0x==0:
+    elif (abs(w0y) < 1 and abs(w0x) < 1):
         # LOOP 3
         print("LOOP 3")
-        print(f"UPDATED WIND SPEEDS, X->{w0x} m/s and Y->{w0y} m/s")
+        print(f"UPDATED WIND SPEEDS (setting to 0), X->{w0x} m/s and Y->{w0y} m/s")
 
-        # Oz Ascent Model
-        m1_final_x_displacements = (imu_x[imu_start_time] - imu_x[0])
-        m1_final_y_displacements = (imu_y[imu_start_time] - imu_y[0])
+        for i in range(3):
+            # Oz Ascent Model
+            m1_final_x_displacements[i] = (imu_x[imu_start_time] - imu_x[0])
+            m1_final_y_displacements[i] = (imu_y[imu_start_time] - imu_y[0])
 
-        print(f"MODEL 1: TOTAL X AND Y DISPLACEMENTS: X->{m1_final_x_displacements[idx]:2f} m, Y->{m1_final_y_displacements[idx]:2f} m")
+        print(f"MODEL 1: TOTAL X AND Y DISPLACEMENTS: X->{m1_final_x_displacements[0]:2f} m, Y->{m1_final_y_displacements[0]:2f} m")
         print()
 
-    elif w0y is not 0 and w0x is not 0:
+    #elif (abs(w0y) > 1 and abs(w0x) > 1):
+    else:
         # LOOP 4
         print("LOOP 4")
-        print(f"UPDATED WIND SPEEDS, X->{w0x} m/s and Y->{w0y} m/s")
+        print(f"UPDATED WIND SPEEDS (setting to 0), X->{w0x} m/s and Y->{w0y} m/s")
         
         drogue_opening_displacement_x = imu_x[imu_end_time] - imu_x[imu_start_time]
         drogue_opening_displacement_y = imu_y[imu_end_time] - imu_y[imu_start_time]
@@ -300,8 +302,6 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
         # Fix the index from MATLAB to Python
         landing_i -= 1
 
-        m1_final_x_displacements, m1_final_y_displacements = [0]*3, [0]*3
-        m2_final_x_displacements, m2_final_y_displacements = [0]*3, [0]*3
         for idx, uncertainty in enumerate([-1, 0, 1]):
             #For end_time to landing
             total_x_displacement = 0
