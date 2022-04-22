@@ -27,6 +27,11 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
     
     RETURNS
     final_grid_number: a LIST of grid numbers that we think we landed in.  First is the "average" NOT BEST, the rest are the uncertainty
+    Now also returns:
+        the original wind speeds
+        the updated wind speeds
+        all displacements
+        landing/signal times
     
     NOTES
         We output a lot of text for quick sanity checks.  Could toggle this with a verbose mode (don't have yet).  Ideally this is 
@@ -389,7 +394,8 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
 
     print(f"ALL GRID BOXES: {all_xs}")
 
-    return all_xs
+    # Returns all possible grid boxes, the original wind speeds, the updated wind speeds, all displacements, and landing/signal times
+    return all_xs, [w0x, w0y], [adj_wx, adj_wy], [minx, maxx, avg_x, miny, maxy, avg_y], [imu_t[landing_i-1], imu_t[imu_start_time], imu_t[imu_end_time]]
 
 
 def update_xboxes(avg_x, launch_rail_box):
