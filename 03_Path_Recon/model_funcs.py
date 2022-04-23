@@ -179,9 +179,11 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
     wx_ws_apogee, wy_ws_apogee = wx_ws*((z_0/2)**(1/7)), wy_ws*((z_0/2)**(1/7))
     
     # If we flip directions then just set it to zero, there wasn't actually any wind most likely
-    if wx_ws is not 0 and wx_ws*w0x < 0:
+    # IF THE SIGNS ARE OPPOSITE, WE TRUST THE WEATHER REPORT OVER THE IMU
+    #abs(wx_ws)>my_arbitrary_wind_threshold and 
+    if wx_ws*w0x < 0:
         w0x = wx_ws_apogee
-    if abs(wy_ws)<my_arbitrary_wind_threshold and wy_ws*w0y < 0:
+    if wy_ws*w0y < 0:
         w0y = wy_ws_apogee
     print(f"UPDATED WIND SPEEDS (weather report), X->{w0x} m/s and Y->{w0y} m/s")
     print()
@@ -391,7 +393,7 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
     print("METHOD 1: Original (Center Assumed) Approach:")
         
     new_xbox = update_xboxes(-avg_x, launch_rail_box)
-    final_grid_number = update_yboxes(-avg_y, new_xbox)
+    final_grid_number = update_yboxes(avg_y, new_xbox)
     
     # Somewhat shoddy logic
     if (maxx-minx)/2 > 250/ft:
@@ -416,9 +418,6 @@ def calc_displacement2(imu_data_file_and_path, launch_rail_box, weather_station_
         all_GPS_boxes = GPS_to_grid_box(maxx, minx, avg_x, maxy, miny, avg_y, input_longitude=GPS_coords[0], input_latitude=GPS_coords[1])
         print(f"ALL GPS GRID BOXES: {all_GPS_boxes}")
         
-    # WHEN WE RETURN A LIST OF GRID BOXES, THE FIRST ELEMENT OF THE LIST IS THE AVERAGE AND THUS SHOULD PROBABLY BE USED
-    # Returns all possible grid boxes (OG Method), all possible grid boxes (GPS Method: note that all the rest after the first element are edge cases), the original wind speeds, the updated wind speeds, all displacements, and landing/signal times
-    #return all_xs, all_GPS_boxes, [w0x, w0y], [adj_wx, adj_wy], [minx, maxx, avg_x, miny, maxy, avg_y], [imu_t[landing_i-1], imu_t[imu_start_time], imu_t[imu_end_time]]
     return all_xs[0], all_GPS_boxes[0], round(adj_wx, 2), round(adj_wy, 2), round((maxx-minx)/2, 2), round((maxy-miny)/2, 2), round(imu_t[landing_i-1], 2)
 
 
