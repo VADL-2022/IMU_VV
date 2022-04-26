@@ -1,7 +1,7 @@
 clear; clc; close all;
 %% LAUNCH RAIL GPS INPUT (only change this part befor launch)
-input_longitude = 34.8946330;%34.8969554;%34.894277;
-input_latitude = 86.6166410;%86.6165814;%86.616216; % NEGLECT NEGATIVE SIGN
+input_longitude = 34.8968490;%34.8968710;
+input_latitude = 86.6202393;%86.6201964; % NEGLECT NEGATIVE SIGN
 
 %% DETERMINE LAUNCH GRID
 n = 20;
